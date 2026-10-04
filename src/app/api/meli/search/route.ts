@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { calculateCompetitionMetrics } from "@/lib/meliAnalytics";
 import { MeliProduct } from "@/types/meli";
 
+export const maxDuration = 60; // Permitir hasta 60s en Vercel para llamadas de scraping
+
 const CURRENCIES: Record<string, { code: string; factor: number; symbol: string; domain: string }> = {
   MCO: { code: "COP", factor: 4200, symbol: "$", domain: "mercadolibre.com.co" },
   MLM: { code: "MXN", factor: 18, symbol: "$", domain: "mercadolibre.com.mx" },
