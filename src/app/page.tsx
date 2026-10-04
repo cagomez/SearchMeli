@@ -86,9 +86,13 @@ export default function Home() {
     setGeminiApiKey(key);
     localStorage.setItem("searchmeli_gemini_key", key);
 
-    // Si el usuario está autenticado, guardarla en Supabase
+    // Si el usuario está autenticado, guardarla en Supabase (Auth Metadata y Profiles)
     if (supabase && userProfile?.id) {
       try {
+        await supabase.auth.updateUser({
+          data: { gemini_api_key: key },
+        });
+
         await supabase
           .from("profiles")
           .update({ gemini_api_key: key })
@@ -563,7 +567,15 @@ export default function Home() {
       {/* Modal obligatorio para primer inicio de sesión */}
       <ForcePasswordChangeModal
         isOpen={mustChangePassword}
-        onPasswordChanged={() => setMustChangePassword(false)}
+        onPasswordChanged={(key, site) => {
+          setMustChangePassword(false);
+          if (key) {
+            handleSaveGeminiKey(key);
+          }
+          if (site) {
+            setSelectedSite(site);
+          }
+        }}
       />
     </div>
   );
