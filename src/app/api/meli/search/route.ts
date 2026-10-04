@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { calculateCompetitionMetrics } from "@/lib/meliAnalytics";
 import { MeliProduct } from "@/types/meli";
 
+const CURRENCIES: Record<string, { code: string; factor: number; symbol: string; domain: string }> = {
+  MCO: { code: "COP", factor: 4200, symbol: "$", domain: "mercadolibre.com.co" },
+  MLM: { code: "MXN", factor: 18, symbol: "$", domain: "mercadolibre.com.mx" },
+  MLA: { code: "ARS", factor: 1200, symbol: "$", domain: "mercadolibre.com.ar" },
+  MLC: { code: "CLP", factor: 950, symbol: "$", domain: "mercadolibre.cl" },
+  MPE: { code: "PEN", factor: 3.8, symbol: "S/", domain: "mercadolibre.com.pe" },
+  MLB: { code: "BRL", factor: 5.5, symbol: "R$", domain: "mercadolivre.com.br" },
+  MLU: { code: "UYU", factor: 40, symbol: "$", domain: "mercadolibre.com.uy" },
+};
+
 // Generador de datos inteligentes y realistas de Mercado Libre
 // Sirve como fallback garantizado cuando la API oficial bloquea por PolicyAgent/OAuth
 function generateSimulatedMeliProducts(
@@ -10,17 +20,7 @@ function generateSimulatedMeliProducts(
   customUsdPrice?: number,
   customCompetitors?: any[]
 ): MeliProduct[] {
-  const currencies: Record<string, { code: string; factor: number; symbol: string; domain: string }> = {
-    MCO: { code: "COP", factor: 4200, symbol: "$", domain: "mercadolibre.com.co" },
-    MLM: { code: "MXN", factor: 18, symbol: "$", domain: "mercadolibre.com.mx" },
-    MLA: { code: "ARS", factor: 1200, symbol: "$", domain: "mercadolibre.com.ar" },
-    MLC: { code: "CLP", factor: 950, symbol: "$", domain: "mercadolibre.cl" },
-    MPE: { code: "PEN", factor: 3.8, symbol: "S/", domain: "mercadolibre.com.pe" },
-    MLB: { code: "BRL", factor: 5.5, symbol: "R$", domain: "mercadolivre.com.br" },
-    MLU: { code: "UYU", factor: 40, symbol: "$", domain: "mercadolibre.com.uy" },
-  };
-
-  const curr = currencies[siteId] || currencies.MCO;
+  const curr = CURRENCIES[siteId] || CURRENCIES.MCO;
   const baseUsdPrice = (customUsdPrice && customUsdPrice > 0) ? customUsdPrice : 35;
 
   // Si la IA detectó competidores específicos para este producto exacto, usarlos directamente
@@ -253,10 +253,76 @@ async function handleSearch(
         }));
       } else {
         console.warn(
-          `Mercado Libre devolvió status ${meliRes.status} (PolicyAgent). Activando fallback de datos estructurados para desarrollo/preview.`
+          `Mercado Libre devolvió status ${meliRes.status} (PolicyAgent). Intentando extracción en vivo vía Apify...`
         );
-        isSimulated = true;
-        products = generateSimulatedMeliProducts(query, siteId, estimatedUsd, customCompetitors);
+
+        // Si tenemos APIFY_API_TOKEN, extraer datos reales y fotos directamente de Mercado Libre
+        const apifyToken = process.env.APIFY_API_TOKEN;
+        if (apifyToken) {
+          try {
+            const domain = CURRENCIES[siteId]?.domain || "mercadolibre.com.co";
+            const searchUrl = `https://listado.${domain}/${encodeURIComponent(query.trim())}`;
+            
+            const apifyUrl = `https://api.apify.com/v2/acts/karamelo~mercadolibre-scraper-espanol-castellano/run-sync-get-dataset-items?token=${apifyToken}&timeout=25`;
+            const apifyRes = await fetch(apifyUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                startUrls: [{ url: searchUrl }],
+                maxItems: parseInt(limit, 10) || 20,
+              }),
+            });
+
+            if (apifyRes.ok) {
+              const apifyData = await apifyRes.json();
+              if (Array.isArray(apifyData) && apifyData.length > 0) {
+                products = apifyData.map((item: any, i: number) => {
+                  const rawPrice = item.nuevoPrecio || item.precio || "0";
+                  const price = typeof rawPrice === "number" ? rawPrice : parseFloat(String(rawPrice).replace(/[^\d.]/g, "")) || 0;
+                  const rawOldPrice = item.precioAnterior || null;
+                  const originalPrice = rawOldPrice ? (typeof rawOldPrice === "number" ? rawOldPrice : parseFloat(String(rawOldPrice).replace(/[^\d.]/g, ""))) : null;
+
+                  const isFull = Boolean(
+                    item.Envio?.toUpperCase().includes("FULL") ||
+                    item.isFull ||
+                    item.envioGratis
+                  );
+
+                  return {
+                    id: item.idPublicacion || `${siteId}${200000000 + i}`,
+                    title: item.articuloTitulo || item.title || query,
+                    price: price,
+                    original_price: originalPrice,
+                    currency_id: item.Moneda || CURRENCIES[siteId]?.code || "COP",
+                    condition: "new",
+                    thumbnail: item.imgDireccion || item.thumbnail || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60",
+                    permalink: item.zProductoLink || item.permalink || `https://listado.${domain}/${encodeURIComponent(query)}`,
+                    seller: {
+                      id: 700000 + i,
+                      nickname: item.Vendedor || item.seller || "Vendedor Oficial",
+                    },
+                    shipping: {
+                      free_shipping: Boolean(item.envioGratis),
+                      logistic_type: isFull ? "fulfillment" : "drop_off",
+                      store_pick_up: false,
+                    },
+                    sold_quantity: parseInt(item.cantidadVendida, 10) || 10,
+                    available_quantity: 50,
+                  };
+                });
+                isSimulated = false;
+              }
+            }
+          } catch (apifyErr) {
+            console.warn("Fallo en Apify scraper:", apifyErr);
+          }
+        }
+
+        // Si Apify no estaba configurado o falló, recurrir al generador estructurado
+        if (products.length === 0) {
+          isSimulated = true;
+          products = generateSimulatedMeliProducts(query, siteId, estimatedUsd, customCompetitors);
+        }
       }
     } catch (fetchErr) {
       console.warn("Fallo en fetch a MeLi, usando datos simulados:", fetchErr);
