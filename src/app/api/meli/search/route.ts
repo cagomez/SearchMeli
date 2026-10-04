@@ -262,15 +262,19 @@ async function handleSearch(
           try {
             const domain = CURRENCIES[siteId]?.domain || "mercadolibre.com.co";
             
-            // Usamos devcake~mercadolibre-scraper: extrae las publicaciones vivas con url_item individual y fotos originales en alta definición
+            const cleanQ = query.trim();
+            // devcake acepta queries / searchQueries / search_queries; enviamos todas para asegurar compatibilidad
             const apifyUrl = `https://api.apify.com/v2/acts/devcake~mercadolibre-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=45`;
             const apifyRes = await fetch(apifyUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                search_queries: [query.trim()],
+                queries: [cleanQ],
+                searchQueries: [cleanQ],
+                search_queries: [cleanQ],
                 site: siteId,
                 maxItems: 48,
+                enrichDetailPage: false,
               }),
             });
 
