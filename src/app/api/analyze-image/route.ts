@@ -5,7 +5,7 @@ import { ImageAnalysisResult } from "@/types/meli";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { imageBase64, mimeType = "image/jpeg" } = body;
+    const { imageBase64, mimeType = "image/jpeg", userGeminiKey } = body;
 
     if (!imageBase64) {
       return NextResponse.json(
@@ -14,11 +14,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Priorizar la API key personal del usuario (BYOK), luego la del entorno del servidor
+    const apiKey = userGeminiKey?.trim() || process.env.GEMINI_API_KEY;
 
-    // Si no hay API key configurada, ofrecemos un fallback inteligente para pruebas de desarrollo
+    // Si no hay API key disponible, ofrecemos el fallback inteligente para demostración
     if (!apiKey) {
-      console.warn("GEMINI_API_KEY no configurada. Usando fallback de demostración.");
+      console.warn("Sin API Key de Gemini. Usando fallback de demostración.");
       const mockResult: ImageAnalysisResult = {
         productTitle: "Audífonos Bluetooth Inalámbricos",
         suggestedKeywords: ["audifonos bluetooth", "auriculares inalambricos", "tws cancelacion ruido"],
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       };
       return NextResponse.json({
         analysis: mockResult,
-        warning: "Para detección con IA real en producción, configura GEMINI_API_KEY en las variables de entorno.",
+        warning: "Configura tu propia API Key personal de Google Gemini para reconocimiento en vivo.",
       });
     }
 

@@ -2,10 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { User, LogIn, LogOut, KeyRound, Sparkles } from "lucide-react";
+import { User, LogIn, LogOut, KeyRound, Sparkles, Shield } from "lucide-react";
+import Link from "next/link";
 
-export function SupabaseAuthModal() {
+interface SupabaseAuthModalProps {
+  onProfileLoaded?: (profile: any) => void;
+  onOpenGeminiKeyModal?: () => void;
+  hasGeminiKey?: boolean;
+}
+
+export function SupabaseAuthModal({
+  onProfileLoaded,
+  onOpenGeminiKeyModal,
+  hasGeminiKey,
+}: SupabaseAuthModalProps) {
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -16,14 +28,40 @@ export function SupabaseAuthModal() {
   useEffect(() => {
     if (!supabase) return;
 
+    const fetchProfile = async (userId: string) => {
+      try {
+        if (!supabase) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
+        if (data) {
+          setProfile(data);
+          onProfileLoaded?.(data);
+        }
+      } catch (err) {
+        console.error("Error cargando perfil:", err);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        onProfileLoaded?.(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -67,6 +105,7 @@ export function SupabaseAuthModal() {
     if (supabase) {
       await supabase.auth.signOut();
       setUser(null);
+      setProfile(null);
     }
   };
 
@@ -79,15 +118,47 @@ export function SupabaseAuthModal() {
     );
   }
 
+  const isAdmin = profile?.role === "admin" || user?.email?.includes("admin");
+
   return (
-    <div>
+    <div className="flex items-center space-x-2">
+      {/* Botón de API Key de Gemini para el usuario */}
+      <button
+        type="button"
+        onClick={onOpenGeminiKeyModal}
+        className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition ${
+          hasGeminiKey
+            ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/25"
+            : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-750"
+        }`}
+        title="Configurar mi propia API Key de Google Gemini"
+      >
+        <KeyRound className="w-3.5 h-3.5 text-yellow-400" />
+        <span className="hidden sm:inline">Mi Gemini Key</span>
+        {hasGeminiKey && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        )}
+      </button>
+
+      {/* Acceso directo a Panel de Admin si es admin */}
+      {isAdmin && (
+        <Link
+          href="/admin"
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-yellow-400 text-xs font-semibold rounded-xl border border-yellow-400/30 transition shadow-sm"
+          title="Panel de Administración"
+        >
+          <Shield className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Admin</span>
+        </Link>
+      )}
+
       {user ? (
-        <div className="flex items-center space-x-3 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-xl">
+        <div className="flex items-center space-x-2.5 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-xl">
           <div className="w-6 h-6 rounded-full bg-yellow-400/20 text-yellow-400 flex items-center justify-center text-xs font-bold">
             {user.email?.charAt(0).toUpperCase()}
           </div>
-          <span className="text-xs text-neutral-300 hidden sm:inline max-w-[140px] truncate">
-            {user.email}
+          <span className="text-xs text-neutral-300 hidden md:inline max-w-[120px] truncate">
+            {profile?.full_name || user.email}
           </span>
           <button
             onClick={handleLogout}
@@ -107,15 +178,15 @@ export function SupabaseAuthModal() {
         </button>
       )}
 
-      {/* Modal */}
+      {/* Modal de Autenticación */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-sm p-6 relative shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-1">
               {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
             </h3>
             <p className="text-xs text-neutral-400 mb-4">
-              Guarda tus búsquedas e historial de productos analizados.
+              Usa tus credenciales temporales o personales para acceder.
             </p>
 
             {message && (

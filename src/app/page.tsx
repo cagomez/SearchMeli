@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ImageUploader } from "@/components/ImageUploader";
 import { CompetitionOverview } from "@/components/CompetitionOverview";
 import { ProductList } from "@/components/ProductList";
 import { SupabaseAuthModal } from "@/components/SupabaseAuthModal";
+import { GeminiKeyModal } from "@/components/GeminiKeyModal";
+import { ForcePasswordChangeModal } from "@/components/ForcePasswordChangeModal";
 import { MELI_SITES, SearchResponse, ImageAnalysisResult } from "@/types/meli";
 import { supabase } from "@/lib/supabase";
 import {
@@ -15,7 +17,7 @@ import {
   AlertCircle,
   ShoppingBag,
   Layers,
-  ArrowRight,
+  KeyRound,
 } from "lucide-react";
 
 export default function Home() {
@@ -28,6 +30,52 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualQuery, setManualQuery] = useState("");
 
+  // Control de usuario, claves Gemini y contraseñas temporales
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [geminiApiKey, setGeminiApiKey] = useState<string>("");
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  // Cargar clave de Gemini desde localStorage al inicio
+  useEffect(() => {
+    const savedLocalKey = localStorage.getItem("searchmeli_gemini_key");
+    if (savedLocalKey) {
+      setGeminiApiKey(savedLocalKey);
+    }
+  }, []);
+
+  // Al cargar perfil desde SupabaseAuthModal
+  const handleProfileLoaded = (profile: any) => {
+    setUserProfile(profile);
+    if (profile) {
+      if (profile.must_change_password) {
+        setMustChangePassword(true);
+      }
+      if (profile.gemini_api_key) {
+        setGeminiApiKey(profile.gemini_api_key);
+        localStorage.setItem("searchmeli_gemini_key", profile.gemini_api_key);
+      }
+    }
+  };
+
+  // Guardar clave de Gemini
+  const handleSaveGeminiKey = async (key: string) => {
+    setGeminiApiKey(key);
+    localStorage.setItem("searchmeli_gemini_key", key);
+
+    // Si el usuario está autenticado, guardarla en Supabase
+    if (supabase && userProfile?.id) {
+      try {
+        await supabase
+          .from("profiles")
+          .update({ gemini_api_key: key })
+          .eq("id", userProfile.id);
+      } catch (err) {
+        console.error("Error guardando API key en perfil:", err);
+      }
+    }
+  };
+
   // Manejar imagen seleccionada (vía archivo o cámara)
   const handleImageSelected = async (base64Image: string, previewUrl: string) => {
     setPreviewImage(previewUrl);
@@ -37,13 +85,14 @@ export default function Home() {
     setIsAnalyzing(true);
 
     try {
-      // 1. Analizar imagen con IA
+      // 1. Analizar imagen con IA (enviando la key personalizada del usuario)
       const res = await fetch("/api/analyze-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageBase64: base64Image,
           mimeType: "image/jpeg",
+          userGeminiKey: geminiApiKey,
         }),
       });
 
@@ -192,14 +241,34 @@ export default function Home() {
               </select>
             </div>
 
-            {/* Supabase Auth */}
-            <SupabaseAuthModal />
+            {/* Supabase Auth y Gestión de Gemini Key */}
+            <SupabaseAuthModal
+              onProfileLoaded={handleProfileLoaded}
+              onOpenGeminiKeyModal={() => setIsGeminiModalOpen(true)}
+              hasGeminiKey={Boolean(geminiApiKey)}
+            />
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+        {/* Banner si el usuario no tiene configurada su clave de Gemini */}
+        {!geminiApiKey && (
+          <div className="mb-6 max-w-3xl mx-auto p-3.5 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-between gap-3 text-xs text-yellow-300">
+            <div className="flex items-center space-x-2">
+              <KeyRound className="w-4 h-4 text-yellow-400 shrink-0" />
+              <span>Configura tu propia API Key de Google Gemini para reconocimiento en vivo por cámara.</span>
+            </div>
+            <button
+              onClick={() => setIsGeminiModalOpen(true)}
+              className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold rounded-xl text-[11px] shrink-0 transition"
+            >
+              Configurar Clave
+            </button>
+          </div>
+        )}
+
         {/* Hero si no hay búsqueda previa */}
         {!searchResponse && !isAnalyzing && (
           <div className="text-center max-w-2xl mx-auto mb-8 pt-4">
@@ -258,7 +327,7 @@ export default function Home() {
         {/* Resultados de Búsqueda y Análisis de Competencia */}
         {searchResponse && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Header de Resultados & Barra de Búsqueda Manual / Ajuste de Término */}
+            {/* Header de Resultados */}
             <div className="bg-neutral-900/80 border border-neutral-800 rounded-3xl p-6 shadow-xl">
               <div className="flex flex-col md:flex-row gap-6 items-start">
                 {/* Miniatura de la imagen subida */}
@@ -409,14 +478,28 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>SearchMeli © 2026 — MicroApp de Búsqueda Visual y Competencia de Mercado Libre</p>
           <div className="flex items-center space-x-4">
-            <span>Next.js 14/15</span>
+            <span>Next.js 16</span>
             <span>•</span>
-            <span>Supabase DB</span>
+            <span>Supabase Auth & DB</span>
             <span>•</span>
             <span>Vercel Ready</span>
           </div>
         </div>
       </footer>
+
+      {/* Modal para configurar API Key de Gemini */}
+      <GeminiKeyModal
+        isOpen={isGeminiModalOpen}
+        onClose={() => setIsGeminiModalOpen(false)}
+        apiKey={geminiApiKey}
+        onSaveKey={handleSaveGeminiKey}
+      />
+
+      {/* Modal obligatorio para primer inicio de sesión */}
+      <ForcePasswordChangeModal
+        isOpen={mustChangePassword}
+        onPasswordChanged={() => setMustChangePassword(false)}
+      />
     </div>
   );
 }
