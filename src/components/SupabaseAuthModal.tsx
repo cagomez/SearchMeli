@@ -28,18 +28,29 @@ export function SupabaseAuthModal({
   useEffect(() => {
     if (!supabase) return;
 
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (authUser: any) => {
       try {
-        if (!supabase) return;
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .single();
-        if (data) {
-          setProfile(data);
-          onProfileLoaded?.(data);
+        let metaProfile = {
+          id: authUser.id,
+          email: authUser.email,
+          full_name: authUser.user_metadata?.full_name || "",
+          role: authUser.user_metadata?.role || "user",
+          must_change_password: authUser.user_metadata?.must_change_password ?? false,
+          gemini_api_key: authUser.user_metadata?.gemini_api_key || "",
+        };
+
+        if (supabase) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", authUser.id)
+            .single();
+          if (data) {
+            metaProfile = { ...metaProfile, ...data };
+          }
         }
+        setProfile(metaProfile);
+        onProfileLoaded?.(metaProfile);
       } catch (err) {
         console.error("Error cargando perfil:", err);
       }
@@ -48,7 +59,7 @@ export function SupabaseAuthModal({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
       }
     });
 
@@ -57,7 +68,7 @@ export function SupabaseAuthModal({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
       } else {
         setProfile(null);
         onProfileLoaded?.(null);

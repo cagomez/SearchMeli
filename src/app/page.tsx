@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Layers,
   KeyRound,
+  Lock,
 } from "lucide-react";
 
 export default function Home() {
@@ -32,21 +33,43 @@ export default function Home() {
 
   // Control de usuario, claves Gemini y contraseñas temporales
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [geminiApiKey, setGeminiApiKey] = useState<string>("");
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // Cargar clave de Gemini desde localStorage al inicio
+  // Cargar clave de Gemini desde localStorage y verificar sesión de usuario
   useEffect(() => {
     const savedLocalKey = localStorage.getItem("searchmeli_gemini_key");
     if (savedLocalKey) {
       setGeminiApiKey(savedLocalKey);
+    }
+
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.user) {
+          setUserProfile(null);
+        }
+        setAuthLoading(false);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session?.user) {
+          setUserProfile(null);
+        }
+        setAuthLoading(false);
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      setAuthLoading(false);
     }
   }, []);
 
   // Al cargar perfil desde SupabaseAuthModal
   const handleProfileLoaded = (profile: any) => {
     setUserProfile(profile);
+    setAuthLoading(false);
     if (profile) {
       if (profile.must_change_password) {
         setMustChangePassword(true);
@@ -252,22 +275,62 @@ export default function Home() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
-        {/* Banner si el usuario no tiene configurada su clave de Gemini */}
-        {!geminiApiKey && (
-          <div className="mb-6 max-w-3xl mx-auto p-3.5 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-between gap-3 text-xs text-yellow-300">
-            <div className="flex items-center space-x-2">
-              <KeyRound className="w-4 h-4 text-yellow-400 shrink-0" />
-              <span>Configura tu propia API Key de Google Gemini para reconocimiento en vivo por cámara.</span>
-            </div>
-            <button
-              onClick={() => setIsGeminiModalOpen(true)}
-              className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold rounded-xl text-[11px] shrink-0 transition"
-            >
-              Configurar Clave
-            </button>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col justify-center">
+        {authLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 space-y-3">
+            <RefreshCw className="w-8 h-8 animate-spin text-yellow-400" />
+            <p className="text-xs text-neutral-400">Verificando sesión segura...</p>
           </div>
-        )}
+        ) : !userProfile ? (
+          /* Pantalla de Bloqueo: Inicio de Sesión Obligatorio */
+          <div className="max-w-md w-full mx-auto my-8 p-8 bg-neutral-900/90 border border-neutral-800 rounded-3xl text-center shadow-2xl space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 flex items-center justify-center mx-auto shadow-inner">
+              <Lock className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-black text-white">Acceso Privado</h2>
+              <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                Para utilizar la microApp y realizar búsquedas de productos en Mercado Libre debes iniciar sesión con tus credenciales asignadas.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800/80 text-left text-xs space-y-2">
+              <div className="text-neutral-300 font-semibold flex items-center space-x-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                <span>¿Primera vez ingresando?</span>
+              </div>
+              <p className="text-neutral-400 text-[11px] leading-relaxed">
+                Ingresa con tu correo y la contraseña temporal proporcionada por el Administrador. El sistema te pedirá definir tu nueva contraseña permanente.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <SupabaseAuthModal
+                onProfileLoaded={handleProfileLoaded}
+                onOpenGeminiKeyModal={() => setIsGeminiModalOpen(true)}
+                hasGeminiKey={Boolean(geminiApiKey)}
+              />
+            </div>
+          </div>
+        ) : (
+          /* Contenido Completo de la Aplicación una vez Autenticado */
+          <>
+            {/* Banner si el usuario no tiene configurada su clave de Gemini */}
+            {!geminiApiKey && (
+              <div className="mb-6 max-w-3xl mx-auto p-3.5 rounded-2xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-between gap-3 text-xs text-yellow-300">
+                <div className="flex items-center space-x-2">
+                  <KeyRound className="w-4 h-4 text-yellow-400 shrink-0" />
+                  <span>Configura tu propia API Key de Google Gemini para reconocimiento en vivo por cámara.</span>
+                </div>
+                <button
+                  onClick={() => setIsGeminiModalOpen(true)}
+                  className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold rounded-xl text-[11px] shrink-0 transition"
+                >
+                  Configurar Clave
+                </button>
+              </div>
+            )}
 
         {/* Hero si no hay búsqueda previa */}
         {!searchResponse && !isAnalyzing && (
@@ -470,6 +533,8 @@ export default function Home() {
               />
             </div>
           </div>
+        )}
+          </>
         )}
       </main>
 

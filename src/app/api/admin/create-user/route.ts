@@ -82,15 +82,22 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Obtener lista de perfiles
-    const { data: profiles, error } = await supabaseAdmin
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // Obtener lista directa desde Supabase Auth Admin
+    const { data: authUsers, error } = await supabaseAdmin.auth.admin.listUsers();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    const profiles = (authUsers.users || []).map((u) => ({
+      id: u.id,
+      email: u.email || "",
+      full_name: u.user_metadata?.full_name || "",
+      role: u.user_metadata?.role || "user",
+      must_change_password: u.user_metadata?.must_change_password ?? false,
+      gemini_api_key: u.user_metadata?.gemini_api_key || "",
+      created_at: u.created_at,
+    }));
 
     return NextResponse.json({ profiles });
   } catch (error: any) {

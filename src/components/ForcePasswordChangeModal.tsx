@@ -39,21 +39,15 @@ export function ForcePasswordChangeModal({
     try {
       if (!supabase) throw new Error("Supabase no está inicializado.");
 
-      // 1. Actualizar contraseña en Supabase Auth
+      // 1. Actualizar contraseña y user_metadata en Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({
         password: newPassword,
+        data: {
+          must_change_password: false,
+        },
       });
 
       if (authError) throw authError;
-
-      // 2. Marcar en la tabla profiles que ya cambió la contraseña temporal
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await supabase
-          .from("profiles")
-          .update({ must_change_password: false })
-          .eq("id", session.user.id);
-      }
 
       onPasswordChanged();
     } catch (err: any) {
