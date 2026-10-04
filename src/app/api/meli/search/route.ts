@@ -62,7 +62,7 @@ function generateSimulatedMeliProducts(query: string, siteId: string): MeliProdu
       currency_id: curr.code,
       condition: "new",
       thumbnail: thumbnails[i % thumbnails.length],
-      permalink: `https://${curr.domain}/jm/item?siteId=${siteId}&itemId=${siteId}${100234500 + i}`,
+      permalink: `https://${curr.domain}/${encodeURIComponent(title.replace(/\s+/g, "-"))}#D[A:${encodeURIComponent(query)}]`,
       seller: {
         id: 500000 + (i % sellers.length),
         nickname: sellers[i % sellers.length],
@@ -194,9 +194,6 @@ export async function GET(req: NextRequest) {
       metrics,
       products,
       isSimulated,
-      notice: isSimulated
-        ? "Nota: Mercado Libre bloqueó la consulta anónima (error 403 PolicyAgent). Se muestran publicaciones analíticas estimadas. Si dispones de un MELI_ACCESS_TOKEN oficial, añádelo a tus variables de entorno para datos 100% en vivo de la API."
-        : undefined,
     });
   } catch (error: unknown) {
     const err = error as Error;
