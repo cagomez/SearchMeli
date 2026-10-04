@@ -94,7 +94,31 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const token = process.env.MELI_ACCESS_TOKEN;
+    let token = process.env.MELI_ACCESS_TOKEN;
+
+    // Si tenemos client_id y client_secret, obtener o renovar access_token dinámicamente
+    if (!token && process.env.MELI_CLIENT_ID && process.env.MELI_CLIENT_SECRET) {
+      try {
+        const tokenRes = await fetch("https://api.mercadolibre.com/oauth/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            grant_type: "client_credentials",
+            client_id: process.env.MELI_CLIENT_ID,
+            client_secret: process.env.MELI_CLIENT_SECRET,
+          }),
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          token = tokenData.access_token;
+        }
+      } catch (tokenErr) {
+        console.warn("No se pudo obtener token dinámico de Mercado Libre:", tokenErr);
+      }
+    }
+
     const meliUrl = `https://api.mercadolibre.com/sites/${encodeURIComponent(
       siteId
     )}/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
