@@ -153,10 +153,11 @@ export default function Home() {
     setErrorMessage(null);
 
     try {
+      const estimatedUsdParam = analysis?.estimatedPriceUsd ? `&estimatedUsd=${analysis.estimatedPriceUsd}` : "";
       const res = await fetch(
         `/api/meli/search?q=${encodeURIComponent(query)}&siteId=${encodeURIComponent(
           siteId
-        )}&limit=40`
+        )}&limit=40${estimatedUsdParam}`
       );
       const data = await res.json();
 

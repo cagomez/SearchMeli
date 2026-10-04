@@ -41,15 +41,18 @@ export async function POST(req: NextRequest) {
     // Limpiar base64 si contiene prefijo data:image/...;base64,
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const prompt = `Analiza detalladamente esta imagen de producto comercial para buscarlo y extraer su competencia en Mercado Libre.
+    const prompt = `Analiza detalladamente esta imagen de producto comercial para buscarlo y extraer su competencia real en Mercado Libre.
+Identifica exactamente el tipo de producto, su rango de precio real de venta al público en USD y competidores habituales.
 Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin markdown adicional):
 {
-  "productTitle": "Nombre específico, claro y conciso del producto como se buscaría en Mercado Libre (máximo 5-7 palabras clave prioritarias)",
+  "productTitle": "Nombre exacto y comercial del producto como se vende en Mercado Libre (máximo 5-7 palabras clave prioritarias)",
   "suggestedKeywords": ["keyword alternativa 1", "keyword alternativa 2", "keyword 3"],
   "brand": "Nombre de marca identificada o null",
   "model": "Modelo identificado o null",
   "category": "Categoría general del producto en español",
   "features": ["característica visible 1", "característica visible 2"],
+  "estimatedPriceUsd": 25.5,
+  "estimatedCompetitors": 45,
   "confidenceScore": 0.95
 }`;
 

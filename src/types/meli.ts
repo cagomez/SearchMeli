@@ -54,6 +54,8 @@ export interface ImageAnalysisResult {
   category: string | null;
   features: string[];
   confidenceScore: number;
+  estimatedPriceUsd?: number;
+  estimatedCompetitors?: number;
 }
 
 export interface SearchResponse {

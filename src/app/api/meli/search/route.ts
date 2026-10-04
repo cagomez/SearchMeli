@@ -4,7 +4,12 @@ import { MeliProduct } from "@/types/meli";
 
 // Generador de datos inteligentes y realistas de Mercado Libre
 // Sirve como fallback garantizado cuando la API oficial bloquea por PolicyAgent/OAuth
-function generateSimulatedMeliProducts(query: string, siteId: string): MeliProduct[] {
+function generateSimulatedMeliProducts(
+  query: string,
+  siteId: string,
+  customUsdPrice?: number,
+  customCompetitors?: number
+): MeliProduct[] {
   const currencies: Record<string, { code: string; factor: number; symbol: string; domain: string }> = {
     MCO: { code: "COP", factor: 4200, symbol: "$", domain: "mercadolibre.com.co" },
     MLM: { code: "MXN", factor: 18, symbol: "$", domain: "mercadolibre.com.mx" },
@@ -16,7 +21,8 @@ function generateSimulatedMeliProducts(query: string, siteId: string): MeliProdu
   };
 
   const curr = currencies[siteId] || currencies.MCO;
-  const baseUsdPrice = 45; // Precio estimado base en USD
+  // Usar el precio real estimado para este producto específico en USD (o default razonable)
+  const baseUsdPrice = (customUsdPrice && customUsdPrice > 0) ? customUsdPrice : 35;
 
   const sellers = [
     "TECH_STORE_OFICIAL",
@@ -86,6 +92,7 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get("q");
     const siteId = searchParams.get("siteId") || "MCO"; // Por defecto Colombia
     const limit = searchParams.get("limit") || "30";
+    const estimatedUsd = parseFloat(searchParams.get("estimatedUsd") || "0") || undefined;
 
     if (!query) {
       return NextResponse.json(
@@ -173,12 +180,12 @@ export async function GET(req: NextRequest) {
           `Mercado Libre devolvió status ${meliRes.status} (PolicyAgent). Activando fallback de datos estructurados para desarrollo/preview.`
         );
         isSimulated = true;
-        products = generateSimulatedMeliProducts(query, siteId);
+        products = generateSimulatedMeliProducts(query, siteId, estimatedUsd);
       }
     } catch (fetchErr) {
       console.warn("Fallo en fetch a MeLi, usando datos simulados:", fetchErr);
       isSimulated = true;
-      products = generateSimulatedMeliProducts(query, siteId);
+      products = generateSimulatedMeliProducts(query, siteId, estimatedUsd);
     }
 
     const defaultCurrency = siteId === "MCO" ? "COP" : siteId === "MLM" ? "MXN" : "ARS";
