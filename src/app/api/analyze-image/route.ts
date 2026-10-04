@@ -56,8 +56,8 @@ Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin mar
   "confidenceScore": 0.95
 }`;
 
-    // Modelos candidatos en orden de preferencia si uno presenta saturación 503
-    const candidateModels = ["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-2.0-flash"];
+    // Modelos oficiales vigentes
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.8-pro"];
 
     let responseText = "";
     let lastError: any = null;
