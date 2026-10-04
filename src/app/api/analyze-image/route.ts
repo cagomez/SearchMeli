@@ -56,64 +56,60 @@ Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin mar
   "confidenceScore": 0.95
 }`;
 
-    // Modelos oficiales vigentes
-    const candidateModels = ["gemini-3.8-flash", "gemini-3.8-pro"];
-
+    // Usar exclusivamente el modelo oficial recomendado gemini-3.8-flash
+    const targetModel = "gemini-3.8-flash";
     let responseText = "";
     let lastError: any = null;
 
-    for (const modelName of candidateModels) {
-      // Intentar hasta 2 veces por modelo en caso de pico 503 temporal
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          if (attempt > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-          }
+    // Intentar hasta 3 veces con pausa progresiva ante picos temporales de demanda (503/429)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Pausa de 1.5s antes del reintento
+          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+        }
 
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: prompt },
-                  {
-                    inlineData: {
-                      data: cleanBase64,
-                      mimeType: mimeType,
-                    },
+        const response = await ai.models.generateContent({
+          model: targetModel,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    data: cleanBase64,
+                    mimeType: mimeType,
                   },
-                ],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
+                },
+              ],
             },
-          });
+          ],
+          config: {
+            responseMimeType: "application/json",
+          },
+        });
 
-          if (response && response.text) {
-            responseText = response.text;
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          // Si es error 503 (alta demanda / unavailable) o 429, intentar con reintento o siguiente modelo
-          const msg = err.message || "";
-          if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand") || msg.includes("429")) {
-            console.warn(`Modelo ${modelName} con alta demanda (503). Probando alternativa...`);
-            continue;
-          } else {
-            // Si es otro tipo de error, pasar al siguiente modelo
-            break;
-          }
+        if (response && response.text) {
+          responseText = response.text;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const msg = err.message || "";
+        console.warn(`Intento ${attempt + 1} con ${targetModel}:`, msg);
+        if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand") || msg.includes("429")) {
+          // Continuar al siguiente intento
+          continue;
+        } else {
+          // Si es otro error (por ejemplo clave inválida), terminar de inmediato
+          throw err;
         }
       }
-
-      if (responseText) break;
     }
 
     if (!responseText) {
-      throw lastError || new Error("Los servidores de IA se encuentran temporalmente saturados. Por favor intenta de nuevo en unos segundos.");
+      throw lastError || new Error("El servicio de IA se encuentra temporalmente ocupado. Por favor intenta de nuevo en unos momentos.");
     }
 
     let parsed: ImageAnalysisResult;
