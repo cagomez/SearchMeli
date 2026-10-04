@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const [selectedSite, setSelectedSite] = useState("MCO"); // Por defecto Colombia
+  const [selectedSite, setSelectedSite] = useState("MLA"); // Configurado por defecto a Argentina (MLA)
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearchingMeli, setIsSearchingMeli] = useState(false);

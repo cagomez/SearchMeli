@@ -262,21 +262,21 @@ async function handleSearch(
         const apifyToken = process.env.APIFY_API_TOKEN;
         if (apifyToken) {
           try {
-            const domain = CURRENCIES[siteId]?.domain || "mercadolibre.com.co";
             const cleanQ = query.trim();
-            const targetCountryUrl = `https://listado.${domain}/`;
 
-            const countryCode = siteId === "MCO" ? "CO" : siteId === "MLM" ? "MX" : siteId === "MLA" ? "AR" : siteId === "MLC" ? "CL" : siteId === "MPE" ? "PE" : "CO";
-
-            // Usamos karamelo~mercadolibre-scraper-espanol-castellano: filtra por el país exacto (Colombia, etc.)
-            // entregando moneda local (COP), fotos originales (imgDireccion) y enlaces directos unitarios (zProductoLink)
-            const apifyUrl = `https://api.apify.com/v2/acts/karamelo~mercadolibre-scraper-espanol-castellano/run-sync-get-dataset-items?token=${apifyToken}&timeout=60`;
+            // Usamos devcake~mercadolibre-scraper configurado para Argentina (MLA / AR)
+            // Extrae exactamente url_item (enlace unitario al producto), image_item (fotos HD) y precio real en ARS
+            const apifyUrl = `https://api.apify.com/v2/acts/devcake~mercadolibre-scraper/run-sync-get-dataset-items?token=${apifyToken}&timeout=45`;
             const apifyRes = await fetch(apifyUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                keyword: cleanQ,
-                country: targetCountryUrl,
+                queries: [cleanQ],
+                search_queries: [cleanQ],
+                site: "MLA",
+                country: "AR",
+                maxItems: 48,
+                enrichDetailPage: false,
               }),
             });
 
@@ -284,43 +284,41 @@ async function handleSearch(
               const apifyData = await apifyRes.json();
               if (Array.isArray(apifyData) && apifyData.length > 0) {
                 products = apifyData.map((item: any, i: number) => {
-                  const rawPrice = item.nuevoPrecio || item.precio || "0";
-                  const price = typeof rawPrice === "number" ? rawPrice : parseFloat(String(rawPrice).replace(/[^\d.]/g, "")) || 0;
-                  const rawOldPrice = item.precioAnterior || null;
-                  const originalPrice = rawOldPrice ? (typeof rawOldPrice === "number" ? rawOldPrice : parseFloat(String(rawOldPrice).replace(/[^\d.]/g, ""))) : null;
+                  const price = typeof item.price === "number" ? item.price : parseFloat(String(item.price).replace(/[^\d.]/g, "")) || 0;
+                  const originalPrice = item.price_original ? (typeof item.price_original === "number" ? item.price_original : parseFloat(String(item.price_original).replace(/[^\d.]/g, ""))) : null;
 
                   const isFull = Boolean(
-                    item.Envio?.toUpperCase().includes("FULL") ||
-                    item.isFull ||
-                    item.envioGratis
+                    item.shipping?.summary?.toUpperCase().includes("FULL") ||
+                    item.is_full ||
+                    item.next_day_delivery
                   );
 
-                  // Foto original de la publicación (alta resolución)
-                  const originalImage = item.imgDireccion || item.thumbnail || (Array.isArray(item.image_item) && item.image_item[0]);
+                  // Foto original de alta resolución
+                  const originalImage = (Array.isArray(item.image_item) && item.image_item[0]) || item.thumbnail || item.image;
 
-                  // Enlace directo unitario a la publicación del vendedor en Colombia/país elegido
-                  const directPermalink = item.zProductoLink || item.url_item || item.permalink || `https://${domain}`;
+                  // Enlace directo único a la publicación del vendedor en Mercado Libre Argentina
+                  const directPermalink = item.url_item || item.permalink || item.url || `https://www.mercadolibre.com.ar`;
 
                   return {
-                    id: item.idPublicacion || item.ml_id || `${siteId}${200000000 + i}`,
-                    title: item.articuloTitulo || item.name || query,
+                    id: item.ml_id || item.item_id || `MLA${200000000 + i}`,
+                    title: item.name || item.title || query,
                     price: price,
                     original_price: originalPrice,
-                    currency_id: item.Moneda || CURRENCIES[siteId]?.code || "COP",
-                    condition: "new",
+                    currency_id: item.currency || "ARS",
+                    condition: item.condition || "new",
                     thumbnail: originalImage || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60",
                     permalink: directPermalink,
                     seller: {
                       id: 700000 + i,
-                      nickname: item.Vendedor || item.seller || "Vendedor",
+                      nickname: item.seller || item.vendor_name || "Vendedor",
                     },
                     shipping: {
-                      free_shipping: Boolean(item.envioGratis || item.free_shipping),
+                      free_shipping: Boolean(item.free_shipping || item.shipping?.free_shipping),
                       logistic_type: isFull ? "fulfillment" : "drop_off",
                       store_pick_up: false,
                     },
-                    sold_quantity: parseInt(String(item.cantidadVendida || item.sold_quantity || "25").replace(/[^\d]/g, ""), 10) || 25,
-                    available_quantity: 50,
+                    sold_quantity: parseInt(String(item.sold_quantity || item.sold_quantity_text?.replace(/[^\d]/g, "") || "25"), 10) || 25,
+                    available_quantity: item.available_quantity || 10,
                   };
                 });
                 isSimulated = false;
