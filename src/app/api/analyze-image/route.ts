@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     // Limpiar base64 si contiene prefijo data:image/...;base64,
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const prompt = `Analiza detalladamente esta imagen de producto comercial para buscarlo y extraer su competencia real en Mercado Libre.
-Identifica exactamente el tipo de producto, su rango de precio real de venta al público en USD y competidores habituales.
+    const prompt = `Analiza detalladamente esta imagen de producto comercial para identificarlo y extraer su competencia real y publicaciones de competidores tal como se venden en Mercado Libre.
+Identifica exactamente el tipo de producto, su precio real de mercado en USD, marcas/modelos competidores y publicaciones reales típicas de Mercado Libre para este producto.
 Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin markdown adicional):
 {
   "productTitle": "Nombre exacto y comercial del producto como se vende en Mercado Libre (máximo 5-7 palabras clave prioritarias)",
@@ -53,6 +53,56 @@ Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin mar
   "features": ["característica visible 1", "característica visible 2"],
   "estimatedPriceUsd": 25.5,
   "estimatedCompetitors": 45,
+  "competitorsList": [
+    {
+      "title": "Título específico y realista de publicación de Mercado Libre para este producto (ej. Marca + Modelo + Variante)",
+      "estimatedPriceUsd": 24.0,
+      "seller": "Nombre de tienda o vendedor de comercio electrónico",
+      "condition": "new",
+      "isFull": true,
+      "freeShipping": true
+    },
+    {
+      "title": "Otra publicación competidora directa de este producto o modelo alternativo",
+      "estimatedPriceUsd": 28.5,
+      "seller": "Distribuidor o tienda oficial",
+      "condition": "new",
+      "isFull": false,
+      "freeShipping": true
+    },
+    {
+      "title": "Publicación versión combo o kit de este producto",
+      "estimatedPriceUsd": 32.0,
+      "seller": "Comercializadora oficial",
+      "condition": "new",
+      "isFull": true,
+      "freeShipping": true
+    },
+    {
+      "title": "Publicación versión económica o genérica compatible",
+      "estimatedPriceUsd": 19.9,
+      "seller": "Importaciones directas",
+      "condition": "new",
+      "isFull": false,
+      "freeShipping": false
+    },
+    {
+      "title": "Publicación edición premium o con garantía extendida",
+      "estimatedPriceUsd": 35.0,
+      "seller": "Tienda verificada",
+      "condition": "new",
+      "isFull": true,
+      "freeShipping": true
+    },
+    {
+      "title": "Publicación paquete por 2 unidades o con accesorios",
+      "estimatedPriceUsd": 39.5,
+      "seller": "Tech Express",
+      "condition": "new",
+      "isFull": true,
+      "freeShipping": true
+    }
+  ],
   "confidenceScore": 0.95
 }`;
 

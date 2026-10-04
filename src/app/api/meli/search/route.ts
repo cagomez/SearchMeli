@@ -8,7 +8,7 @@ function generateSimulatedMeliProducts(
   query: string,
   siteId: string,
   customUsdPrice?: number,
-  customCompetitors?: number
+  customCompetitors?: any[]
 ): MeliProduct[] {
   const currencies: Record<string, { code: string; factor: number; symbol: string; domain: string }> = {
     MCO: { code: "COP", factor: 4200, symbol: "$", domain: "mercadolibre.com.co" },
@@ -21,8 +21,40 @@ function generateSimulatedMeliProducts(
   };
 
   const curr = currencies[siteId] || currencies.MCO;
-  // Usar el precio real estimado para este producto específico en USD (o default razonable)
   const baseUsdPrice = (customUsdPrice && customUsdPrice > 0) ? customUsdPrice : 35;
+
+  // Si la IA detectó competidores específicos para este producto exacto, usarlos directamente
+  if (customCompetitors && customCompetitors.length > 0) {
+    return customCompetitors.map((item, i) => {
+      const priceUsd = item.estimatedPriceUsd || baseUsdPrice;
+      const itemPrice = Math.round(priceUsd * curr.factor);
+      const isFull = Boolean(item.isFull);
+      const freeShipping = Boolean(item.freeShipping);
+      const cleanTitle = item.title || `${query} Modelo ${i + 1}`;
+
+      return {
+        id: `${siteId}${100234500 + i}`,
+        title: cleanTitle,
+        price: itemPrice,
+        original_price: Math.round(itemPrice * 1.15),
+        currency_id: curr.code,
+        condition: item.condition || "new",
+        thumbnail: "https://http2.mlstatic.com/D_NQ_NP_632904-MLA74681643922_022024-O.webp",
+        permalink: `https://${curr.domain}/${encodeURIComponent(cleanTitle.replace(/\s+/g, "-"))}#D[A:${encodeURIComponent(query)}]`,
+        seller: {
+          id: 500000 + i,
+          nickname: item.seller || "Tienda Oficial",
+        },
+        shipping: {
+          free_shipping: freeShipping,
+          logistic_type: isFull ? "fulfillment" : "drop_off",
+          store_pick_up: false,
+        },
+        sold_quantity: (i + 1) * 40,
+        available_quantity: 50,
+      };
+    });
+  }
 
   const sellers = [
     "TECH_STORE_OFICIAL",
@@ -53,7 +85,6 @@ function generateSimulatedMeliProducts(
   ];
 
   const products: MeliProduct[] = variants.map((title, i) => {
-    // Variación de precio entre el 70% y el 150% del precio base
     const priceMultiplier = 0.75 + (i * 0.12);
     const itemPrice = Math.round(baseUsdPrice * curr.factor * priceMultiplier);
     const isFull = i % 2 === 0;
@@ -86,6 +117,27 @@ function generateSimulatedMeliProducts(
   return products;
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { query, siteId = "MCO", limit = 40, estimatedUsd, customCompetitors } = body;
+
+    if (!query) {
+      return NextResponse.json(
+        { error: "El parámetro de búsqueda 'query' es requerido" },
+        { status: 400 }
+      );
+    }
+
+    return await handleSearch(query, siteId, String(limit), estimatedUsd, customCompetitors);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: "Error procesando búsqueda: " + (error?.message || "Desconocido") },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -101,6 +153,25 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    return await handleSearch(query, siteId, limit, estimatedUsd);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error en /api/meli/search GET:", err);
+    return NextResponse.json(
+      { error: "Error al consultar Mercado Libre: " + (err.message || "Desconocido") },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleSearch(
+  query: string,
+  siteId: string,
+  limit: string,
+  estimatedUsd?: number,
+  customCompetitors?: any[]
+) {
+  try {
     let token = process.env.MELI_ACCESS_TOKEN;
 
     // Si tenemos client_id y client_secret, obtener o renovar access_token dinámicamente
@@ -180,12 +251,12 @@ export async function GET(req: NextRequest) {
           `Mercado Libre devolvió status ${meliRes.status} (PolicyAgent). Activando fallback de datos estructurados para desarrollo/preview.`
         );
         isSimulated = true;
-        products = generateSimulatedMeliProducts(query, siteId, estimatedUsd);
+        products = generateSimulatedMeliProducts(query, siteId, estimatedUsd, customCompetitors);
       }
     } catch (fetchErr) {
       console.warn("Fallo en fetch a MeLi, usando datos simulados:", fetchErr);
       isSimulated = true;
-      products = generateSimulatedMeliProducts(query, siteId, estimatedUsd);
+      products = generateSimulatedMeliProducts(query, siteId, estimatedUsd, customCompetitors);
     }
 
     const defaultCurrency = siteId === "MCO" ? "COP" : siteId === "MLM" ? "MXN" : "ARS";

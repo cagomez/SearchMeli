@@ -56,6 +56,14 @@ export interface ImageAnalysisResult {
   confidenceScore: number;
   estimatedPriceUsd?: number;
   estimatedCompetitors?: number;
+  competitorsList?: {
+    title: string;
+    estimatedPriceUsd: number;
+    seller: string;
+    condition: string;
+    isFull: boolean;
+    freeShipping: boolean;
+  }[];
 }
 
 export interface SearchResponse {
