@@ -127,7 +127,7 @@ function generateSimulatedMeliProducts(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { query, siteId = "MCO", limit = 40, estimatedUsd, customCompetitors } = body;
+    const { query, siteId = "MLA", limit = 40, estimatedUsd, customCompetitors } = body;
 
     if (!query) {
       return NextResponse.json(
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q");
-    const siteId = searchParams.get("siteId") || "MCO"; // Por defecto Colombia
+    const siteId = searchParams.get("siteId") || "MLA"; // Por defecto Argentina
     const limit = searchParams.get("limit") || "30";
     const estimatedUsd = parseFloat(searchParams.get("estimatedUsd") || "0") || undefined;
 
