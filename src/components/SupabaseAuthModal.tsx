@@ -133,34 +133,37 @@ export function SupabaseAuthModal({
 
   return (
     <div className="flex items-center space-x-2">
-      {/* Botón de API Key de Gemini para el usuario */}
-      <button
-        type="button"
-        onClick={onOpenGeminiKeyModal}
-        className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition ${
-          hasGeminiKey
-            ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/25"
-            : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-750"
-        }`}
-        title="Configurar mi propia API Key de Google Gemini"
-      >
-        <KeyRound className="w-3.5 h-3.5 text-yellow-400" />
-        <span className="hidden sm:inline">Mi Gemini Key</span>
-        {hasGeminiKey && (
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-        )}
-      </button>
+      {/* Botón de API Key de Gemini y Admin: solo visibles si el usuario ha iniciado sesión */}
+      {user && (
+        <>
+          <button
+            type="button"
+            onClick={onOpenGeminiKeyModal}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition ${
+              hasGeminiKey
+                ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/25"
+                : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-750"
+            }`}
+            title="Configurar mi propia API Key de Google Gemini"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-yellow-400" />
+            <span className="hidden sm:inline">Mi Gemini Key</span>
+            {hasGeminiKey && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            )}
+          </button>
 
-      {/* Acceso directo a Panel de Admin si es admin */}
-      {isAdmin && (
-        <Link
-          href="/admin"
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-yellow-400 text-xs font-semibold rounded-xl border border-yellow-400/30 transition shadow-sm"
-          title="Panel de Administración"
-        >
-          <Shield className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Admin</span>
-        </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-yellow-400 text-xs font-semibold rounded-xl border border-yellow-400/30 transition shadow-sm"
+              title="Panel de Administración"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          )}
+        </>
       )}
 
       {user ? (

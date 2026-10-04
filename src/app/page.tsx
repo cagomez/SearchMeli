@@ -247,26 +247,28 @@ export default function Home() {
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* Selector de País de Mercado Libre */}
-            <div className="flex items-center bg-neutral-800/80 border border-neutral-700/80 rounded-xl px-2 py-1 text-xs">
-              <span className="text-neutral-400 mr-1.5 hidden sm:inline">País:</span>
-              <select
-                value={selectedSite}
-                onChange={(e) => {
-                  setSelectedSite(e.target.value);
-                  if (manualQuery) {
-                    executeMeliSearch(manualQuery, e.target.value, analysisResult);
-                  }
-                }}
-                className="bg-transparent text-white font-medium focus:outline-none cursor-pointer"
-              >
-                {MELI_SITES.map((site) => (
-                  <option key={site.id} value={site.id} className="bg-neutral-900 text-white">
-                    {site.flag} {site.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Selector de País de Mercado Libre: Solo visible para usuarios logueados */}
+            {userProfile && (
+              <div className="flex items-center bg-neutral-800/80 border border-neutral-700/80 rounded-xl px-2 py-1 text-xs">
+                <span className="text-neutral-400 mr-1.5 hidden sm:inline">País:</span>
+                <select
+                  value={selectedSite}
+                  onChange={(e) => {
+                    setSelectedSite(e.target.value);
+                    if (manualQuery) {
+                      executeMeliSearch(manualQuery, e.target.value, analysisResult);
+                    }
+                  }}
+                  className="bg-transparent text-white font-medium focus:outline-none cursor-pointer"
+                >
+                  {MELI_SITES.map((site) => (
+                    <option key={site.id} value={site.id} className="bg-neutral-900 text-white">
+                      {site.flag} {site.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Supabase Auth y Gestión de Gemini Key */}
             <SupabaseAuthModal
