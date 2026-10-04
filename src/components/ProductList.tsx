@@ -131,10 +131,14 @@ export function ProductList({ products, currencyId }: ProductListProps) {
               {/* Imagen del producto */}
               <div className="relative aspect-square w-full bg-neutral-950 flex items-center justify-center p-4 overflow-hidden">
                 <img
-                  src={product.thumbnail}
+                  src={product.thumbnail || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60"}
                   alt={product.title}
                   className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
+                  onError={(e) => {
+                    // Si falla cargar la imagen de Mercado Libre por hotlinking o caducidad, usar placeholder limpio
+                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60";
+                  }}
                 />
 
                 {/* Badges de Envío */}

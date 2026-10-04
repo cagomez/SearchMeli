@@ -32,6 +32,10 @@ function generateSimulatedMeliProducts(
       const freeShipping = Boolean(item.freeShipping);
       const cleanTitle = item.title || `${query} Modelo ${i + 1}`;
 
+      const searchSlug = encodeURIComponent(cleanTitle.trim());
+      // URL directa a la búsqueda exacta del producto en Mercado Libre del país correspondiente
+      const realMeliUrl = `https://listado.${curr.domain}/${searchSlug}`;
+
       return {
         id: `${siteId}${100234500 + i}`,
         title: cleanTitle,
@@ -39,8 +43,8 @@ function generateSimulatedMeliProducts(
         original_price: Math.round(itemPrice * 1.15),
         currency_id: curr.code,
         condition: item.condition || "new",
-        thumbnail: "https://http2.mlstatic.com/D_NQ_NP_632904-MLA74681643922_022024-O.webp",
-        permalink: `https://${curr.domain}/${encodeURIComponent(cleanTitle.replace(/\s+/g, "-"))}#D[A:${encodeURIComponent(query)}]`,
+        thumbnail: `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=60`,
+        permalink: realMeliUrl,
         seller: {
           id: 500000 + i,
           nickname: item.seller || "Tienda Oficial",
@@ -91,6 +95,7 @@ function generateSimulatedMeliProducts(
     const freeShipping = i % 3 !== 2;
     const hasDiscount = i % 2 === 1;
 
+    const cleanSearchQuery = encodeURIComponent(title.trim());
     return {
       id: `${siteId}${100234500 + i}`,
       title,
@@ -98,8 +103,8 @@ function generateSimulatedMeliProducts(
       original_price: hasDiscount ? Math.round(itemPrice * 1.25) : null,
       currency_id: curr.code,
       condition: "new",
-      thumbnail: thumbnails[i % thumbnails.length],
-      permalink: `https://${curr.domain}/${encodeURIComponent(title.replace(/\s+/g, "-"))}#D[A:${encodeURIComponent(query)}]`,
+      thumbnail: `https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60`,
+      permalink: `https://listado.${curr.domain}/${cleanSearchQuery}`,
       seller: {
         id: 500000 + (i % sellers.length),
         nickname: sellers[i % sellers.length],
