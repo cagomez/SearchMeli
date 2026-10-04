@@ -106,60 +106,61 @@ Responde ÚNICAMENTE un objeto JSON válido con la siguiente estructura (sin mar
   "confidenceScore": 0.95
 }`;
 
-    // Usar exclusivamente el modelo oficial recomendado gemini-3.8-flash
-    const targetModel = "gemini-3.8-flash";
+    // Lista de modelos disponibles con cuotas independientes en Google AI Studio
+    const candidateModels = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
     let responseText = "";
     let lastError: any = null;
 
-    // Intentar hasta 3 veces con pausa progresiva ante picos temporales de demanda (503/429)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        if (attempt > 0) {
-          // Pausa de 1.5s antes del reintento
-          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-        }
+    // Intentar con la cascada de modelos en caso de cuota agotada (429) o indisponibilidad (503)
+    for (const modelName of candidateModels) {
+      if (responseText) break;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
 
-        const response = await ai.models.generateContent({
-          model: targetModel,
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    data: cleanBase64,
-                    mimeType: mimeType,
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      data: cleanBase64,
+                      mimeType: mimeType,
+                    },
                   },
-                },
-              ],
+                ],
+              },
+            ],
+            config: {
+              responseMimeType: "application/json",
             },
-          ],
-          config: {
-            responseMimeType: "application/json",
-          },
-        });
+          });
 
-        if (response && response.text) {
-          responseText = response.text;
-          break;
-        }
-      } catch (err: any) {
-        lastError = err;
-        const msg = err.message || "";
-        console.warn(`Intento ${attempt + 1} con ${targetModel}:`, msg);
-        if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand") || msg.includes("429")) {
-          // Continuar al siguiente intento
-          continue;
-        } else {
-          // Si es otro error (por ejemplo clave inválida), terminar de inmediato
-          throw err;
+          if (response && response.text) {
+            responseText = response.text;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          const msg = err.message || "";
+          console.warn(`Error con modelo ${modelName} (intento ${attempt + 1}):`, msg);
+          // Si es 429 (cuota agotada) o 503 (ocupado) o 404 (modelo no disponible), pasar al siguiente modelo
+          if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("503") || msg.includes("404")) {
+            break;
+          } else {
+            throw err;
+          }
         }
       }
     }
 
     if (!responseText) {
-      throw lastError || new Error("El servicio de IA se encuentra temporalmente ocupado. Por favor intenta de nuevo en unos momentos.");
+      throw lastError || new Error("Se alcanzó el límite diario de consultas de tu API Key de Gemini. Puedes ingresar otra clave gratuita en tu perfil o esperar a que Google renueve la cuota.");
     }
 
     let parsed: ImageAnalysisResult;
