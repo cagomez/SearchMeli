@@ -133,6 +133,7 @@ export function ProductList({ products, currencyId }: ProductListProps) {
                 <img
                   src={product.thumbnail || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60"}
                   alt={product.title}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                   onError={(e) => {

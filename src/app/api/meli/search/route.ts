@@ -268,8 +268,8 @@ async function handleSearch(
 
             const countryCode = siteId === "MCO" ? "CO" : siteId === "MLM" ? "MX" : siteId === "MLA" ? "AR" : siteId === "MLC" ? "CL" : siteId === "MPE" ? "PE" : "CO";
 
-            // Usamos karamelo~mercadolibre-scraper-espanol-castellano con proxy residencial de Colombia/país objetivo
-            // para evitar que Mercado Libre redirija a Argentina (MLA)
+            // Usamos karamelo~mercadolibre-scraper-espanol-castellano: filtra por el país exacto (Colombia, etc.)
+            // entregando moneda local (COP), fotos originales (imgDireccion) y enlaces directos unitarios (zProductoLink)
             const apifyUrl = `https://api.apify.com/v2/acts/karamelo~mercadolibre-scraper-espanol-castellano/run-sync-get-dataset-items?token=${apifyToken}&timeout=60`;
             const apifyRes = await fetch(apifyUrl, {
               method: "POST",
@@ -277,11 +277,6 @@ async function handleSearch(
               body: JSON.stringify({
                 keyword: cleanQ,
                 country: targetCountryUrl,
-                proxyConfiguration: {
-                  useApifyProxy: true,
-                  apifyProxyCountry: countryCode,
-                },
-                maxConcurrency: 4,
               }),
             });
 
